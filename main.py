@@ -14,42 +14,54 @@ app = FastAPI()
 
 @app.get("/directions")
 async def distance_matrix(key: str, origin: str, container: Annotated[list[str], Query()]):
-    points = container
-    points.append(origin)
+    points = [origin]
 
-    generate_route(points)
+    for elem in container:
+        points.append(elem)
 
+    durations = await apicall(key, origin, container)
+    print(durations)
+
+    container_permutations = list(itertools.permutations(container))
+
+    possible_ways = []
+
+    for container_permutation in container_permutations:
+        possible_way = [origin]
+
+        for elem in container_permutation:
+            possible_way.append(elem)
+
+        possible_ways.append(possible_way)
+
+    return durations
+
+
+def get_durations(key, origin, destinations):
     now = datetime.now()
     gmaps = googlemaps.Client(key=key)
 
-    directions_result = gmaps.distance_matrix(
+    return gmaps.distance_matrix(
         origins=origin,
-        destinations=container,
+        destinations=destinations,
         mode="driving",
         units="metric",
-        departure_time=now)
-
-    print(directions_result)
-    return directions_result
+        departure_time=now,
+        optimize=True)
 
 
-def generate_route(points):
-    point_combinations = list(itertools.permutations(points[1:]))
-    optimal_route = []
-    shortest_distance = float('inf')
+async def apicall(key, origin, destinations):
+    baseurl = "https://maps.googleapis.com/maps/api/directions/json"
+    originurl = "?origin=" + origin
+    destinationurl = "&destination=50.958544,7.192955"
+    waypointsurl = "&waypoints=50.983998,7.119667|50.993660,7.146680|50.994460,7.117352"
+    optimizeurl = "&optimize=true"
+    keyurl = "&key=" + key
 
-    for combination in point_combinations:
-        total_distance = 0
-        ordered_combination = [points[0]] + list(points)
+    url = baseurl + originurl + destinationurl + waypointsurl + optimizeurl + keyurl
 
-
-
-
-        if total_distance < shortest_distance:
-            shortest_distance = total_distance
-            optimal_route = ordered_combination
-
-    return optimal_route
+    response = requests.get(f"{url}")
+    return response.json()
 
 
 def generate_googlemaps_link(route):
@@ -60,26 +72,3 @@ def generate_googlemaps_link(route):
     link = 'https://www.google.com/maps/dir/?api=1&origin={}&destination={}&waypoints={}'.format(origin, origin,
                                                                                                  waypoints)
     return link
-
-
-# Beispielaufruf
-start_point = {'id': 0, 'coordinates': (50.958544, 7.192955)}  # Hier kannst du die Koordinaten des Startpunkts eingeben
-containers = [
-    start_point,
-    {'id': 1, 'coordinates': (50.983998, 7.119667)},
-    {'id': 2, 'coordinates': (50.993660, 7.146680)},
-    {'id': 3, 'coordinates': (50.994460, 7.117352)}
-]
-
-route = generate_route(containers)
-googlemaps_link = generate_googlemaps_link(route)
-
-print("Optimale Reihenfolge der Container:", [container['id'] for container in route])
-print("Google Maps Link zur Route:", googlemaps_link)
-
-TOKEN = ""
-chat_id = ""
-message = googlemaps_link
-url_encoded = urllib.parse.quote(message)
-url = f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={chat_id}&text={url_encoded}"
-# print(requests.get(url).json()) # this sends the message
