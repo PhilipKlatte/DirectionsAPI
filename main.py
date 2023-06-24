@@ -7,7 +7,7 @@ app = FastAPI()
 
 
 @app.get("/directions")
-async def distance_matrix(key: str, origin: str, container: Annotated[list[str], Query()], destination: str):
+async def distance_matrix(telegramtoken: str, chatid: str, key: str, origin: str, container: Annotated[list[str], Query()], destination: str):
     response = await apicall(key, origin, destination, container)
 
     waypoints = []
@@ -18,9 +18,11 @@ async def distance_matrix(key: str, origin: str, container: Annotated[list[str],
 
     print(waypoints)
 
-    message = send_telegram(generate_googlemaps_link(origin, destination, waypoints))
+    message = generate_googlemaps_link(origin, destination, waypoints)
 
-    return response
+    send_telegram(telegramtoken, chatid, message)
+
+    return message
 
 
 def generate_googlemaps_link(origin, destination, waypoints):
@@ -41,26 +43,21 @@ async def apicall(key, origin, destination, waypoints):
     waypointurls = []
     for waypoint in waypoints:
         waypointurls.append(waypoint + "|")
-    optimizeurl = "&optimize=true"
     keyurl = "&key=" + key
 
-    url = baseurl + originurl + destinationurl + "&waypoints="
+    url = baseurl + originurl + destinationurl + "&waypoints=optimize:true|"
     for waypointsurl in waypointurls:
         url += waypointsurl
     url = url[:-1]
-    url += optimizeurl + keyurl
+    url += keyurl
 
     response = requests.get(f"{url}")
 
     return response.json()
 
 
-def send_telegram(message):
-    token = ""
-    chat_id = ""
+def send_telegram(token, chat_id, message):
     url_encoded = urllib.parse.quote(message)
     url = f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={url_encoded}"
-    print(message)
-    # print(requests.get(url).json())
 
-    return message
+    requests.get(url).json()
