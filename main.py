@@ -1,22 +1,37 @@
 from typing import Annotated
 from fastapi import FastAPI, Query
 import requests
-import googlemaps
-from datetime import datetime
-import itertools
-import requests
-import telegram
-import requests
 import urllib.parse
 
 app = FastAPI()
 
 
 @app.get("/directions")
-async def distance_matrix(key: str, origin: str, container: Annotated[list[str], Query()]):
-    durations = await apicall(key, origin, origin, container)
+async def distance_matrix(key: str, origin: str, container: Annotated[list[str], Query()], destination: str):
+    response = await apicall(key, origin, destination, container)
 
-    return durations
+    waypoints = []
+
+    for leg in response["routes"][0]["legs"]:
+        waypoint = str(leg["start_location"]["lat"]) + "," + str(leg["start_location"]["lng"])
+        waypoints.append(waypoint)
+
+    print(waypoints)
+
+    message = send_telegram(generate_googlemaps_link(origin, destination, waypoints))
+
+    return response
+
+
+def generate_googlemaps_link(origin, destination, waypoints):
+    waypointtxt = ""
+    for waypoint in waypoints[1:]:
+        waypointtxt += waypoint + "|"
+    waypointtxt = waypointtxt[:-1]
+
+    link = 'https://www.google.com/maps/dir/?api=1&origin={}&destination={}&waypoints={}'.format(origin, destination,
+                                                                                                 waypointtxt)
+    return link
 
 
 async def apicall(key, origin, destination, waypoints):
@@ -40,11 +55,12 @@ async def apicall(key, origin, destination, waypoints):
     return response.json()
 
 
-def generate_googlemaps_link(route):
-    origin = str(route[0]['coordinates'][0]) + ',' + str(route[0]['coordinates'][1])
-    waypoints = '|'.join(
-        [str(container['coordinates'][0]) + ',' + str(container['coordinates'][1]) for container in route[1:]])
+def send_telegram(message):
+    token = ""
+    chat_id = ""
+    url_encoded = urllib.parse.quote(message)
+    url = f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={url_encoded}"
+    print(message)
+    # print(requests.get(url).json())
 
-    link = 'https://www.google.com/maps/dir/?api=1&origin={}&destination={}&waypoints={}'.format(origin, origin,
-                                                                                                 waypoints)
-    return link
+    return message
