@@ -14,53 +14,29 @@ app = FastAPI()
 
 @app.get("/directions")
 async def distance_matrix(key: str, origin: str, container: Annotated[list[str], Query()]):
-    points = [origin]
-
-    for elem in container:
-        points.append(elem)
-
-    durations = await apicall(key, origin, container)
-    print(durations)
-
-    container_permutations = list(itertools.permutations(container))
-
-    possible_ways = []
-
-    for container_permutation in container_permutations:
-        possible_way = [origin]
-
-        for elem in container_permutation:
-            possible_way.append(elem)
-
-        possible_ways.append(possible_way)
+    durations = await apicall(key, origin, origin, container)
 
     return durations
 
 
-def get_durations(key, origin, destinations):
-    now = datetime.now()
-    gmaps = googlemaps.Client(key=key)
-
-    return gmaps.distance_matrix(
-        origins=origin,
-        destinations=destinations,
-        mode="driving",
-        units="metric",
-        departure_time=now,
-        optimize=True)
-
-
-async def apicall(key, origin, destinations):
+async def apicall(key, origin, destination, waypoints):
     baseurl = "https://maps.googleapis.com/maps/api/directions/json"
     originurl = "?origin=" + origin
-    destinationurl = "&destination=50.958544,7.192955"
-    waypointsurl = "&waypoints=50.983998,7.119667|50.993660,7.146680|50.994460,7.117352"
+    destinationurl = "&destination=" + destination
+    waypointurls = []
+    for waypoint in waypoints:
+        waypointurls.append(waypoint + "|")
     optimizeurl = "&optimize=true"
     keyurl = "&key=" + key
 
-    url = baseurl + originurl + destinationurl + waypointsurl + optimizeurl + keyurl
+    url = baseurl + originurl + destinationurl + "&waypoints="
+    for waypointsurl in waypointurls:
+        url += waypointsurl
+    url = url[:-1]
+    url += optimizeurl + keyurl
 
     response = requests.get(f"{url}")
+
     return response.json()
 
 
