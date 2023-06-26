@@ -9,4 +9,4 @@ RUN apk add --no-cache python3 py3-pip
 RUN pip install -r requirements.txt
 RUN pip install uvicorn
 
-CMD uvicorn main:app
+CMD uvicorn --host 0.0.0.0 main:app
